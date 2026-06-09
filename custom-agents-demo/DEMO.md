@@ -12,19 +12,13 @@ Demonstrate **custom agent creation**, **tool restrictions**, and **handoff work
 
 ## Scenario
 
-A Task Manager REST API is already built. We'll use a pipeline of 3 custom agents to plan, implement, and review a new feature — each with different tool permissions:
-
-| Agent | Tools | Access Level |
-|-------|-------|--------------|
-| **Plan** | `read`, `search`, `edit` | Read + write to `docs/` only |
-| **Implement** | `read`, `edit`, `search`, `execute`, `todo` | Full access |
-| **Review** | `read`, `search` | Read-only + diagnostics |
+A Task Manager REST API is already built. We'll create a pipeline of 3 custom agents to plan, implement, and review a new feature — each with different tool permissions:
 
 ```
 ┌──────────┐    plan     ┌─────────────┐    code    ┌──────────┐
 │   Plan   │───────────▶│  Implement   │──────────▶│  Review  │
-│ (read)   │            │ (read+edit+  │           │ (read)   │
-│          │            │  terminal)   │           │          │
+│ (read +  │            │ (read+edit+  │           │ (read    │
+│  docs/)  │            │  terminal)   │           │  only)   │
 └──────────┘            └─────────────┘           └──────────┘
                               ▲                         │
                               │    critical issues      │
@@ -35,215 +29,319 @@ A Task Manager REST API is already built. We'll use a pipeline of 3 custom agent
 
 ## Setup (For Participants)
 
-### Step 0: Clone and Verify the Project
+### Step 0: Verify the Project Works
 
 ```bash
-# Clone or open the workspace
 cd custom-agents-demo
-
-# Verify the app works
+npm install
 npm test
-npm start
-# Ctrl+C to stop
+```
 
-# Test the API
+Then start the server and test:
+
+```bash
+npm start
+# In another terminal:
 curl http://localhost:3000/health
 curl -X POST http://localhost:3000/tasks -H "Content-Type: application/json" -d "{\"title\":\"Hello World\"}"
 curl http://localhost:3000/tasks
+# Ctrl+C to stop the server
 ```
 
 Confirm you see:
 - ✅ 2 tests passing
-- ✅ Health endpoint returns `{"status":"ok"}`
-- ✅ Task creation works
+- ✅ Health endpoint returns `{"status":"ok", ...}`
+- ✅ Task creation and retrieval works
 
 ---
 
 ## Demo Steps
 
-### Step 1: Explore the Agent Definitions
+### Step 1: Create the Custom Agents
 
-Open and examine the three agent files:
+> **Goal:** Show that custom agents are just markdown files with YAML frontmatter. We'll create all three agents from scratch.
 
-| File | Key Properties |
-|------|----------------|
-| `.github/agents/plan.agent.md` | `tools: [read, search, edit]` — can only write to `docs/` |
-| `.github/agents/implement.agent.md` | `tools: [read, edit, search, execute, todo]` — full access |
-| `.github/agents/review.agent.md` | `tools: [read, search]` — cannot edit at all |
+#### 1a. Create the Plan Agent
 
-**What to point out:**
-- The `tools:` frontmatter restricts what each agent can do
-- The Plan agent has `edit` but is instruction-scoped to `docs/` only — two layers of control
-- The `handoffs:` field defines who the agent passes work to next
-- The `description:` field is how VS Code knows when to suggest the agent
+In Copilot Chat, type:
+
+```
+/create-agent
+```
+
+When prompted, provide these details:
+
+```
+Create an agent called "Plan" that:
+- Analyzes codebases and creates implementation plans
+- Has tools: read, search, edit
+- Has handoffs to: implement
+- Can ONLY write files inside the docs/ folder
+- Must NOT edit source files, run terminal commands, or install packages
+- Always saves its plan to docs/implementation-plan.md
+- Follows a structured approach: understand the request → explore codebase → identify impact → produce plan
+```
+
+**What happens:** VS Code creates `.github/agents/plan.agent.md` automatically with the proper YAML frontmatter and instructions.
+
+**Explain the generated frontmatter:**
+
+| Field | Purpose |
+|-------|---------|
+| `name` | Display name in the Copilot Chat agent dropdown |
+| `description` | How VS Code decides when to suggest this agent |
+| `tools: [read, search, edit]` | Which tools the agent is allowed to use |
+| `handoffs: ["implement"]` | Who this agent can pass work to next |
+
+**Key point:** *The Plan agent has `edit` but its instructions restrict it to `docs/` only. Two layers of security: tool availability + instruction scoping.*
 
 ---
 
-### Step 2: Use the Plan Agent (Read-Only Analysis)
+#### 1b. Create the Implement Agent
 
-1. Open Copilot Chat (`Ctrl+Shift+I`)
-2. Select the **Plan** agent from the agent dropdown (or type `@Plan`)
-3. Enter this prompt:
+Again in Copilot Chat:
 
 ```
-Analyze the Task Manager API in this workspace. Plan how to add:
+/create-agent
+```
+
+Provide:
+
+```
+Create an agent called "Implement" that:
+- Has full access to write code and run commands
+- Has tools: read, edit, search, execute, todo
+- Has handoffs to: review
+- Executes implementation plans from docs/implementation-plan.md
+- Tracks progress using a todo list
+- Implements incrementally, running npm test after each step
+- Must not deviate from the plan without stating why
+- Must not introduce unnecessary dependencies
+- Hands off to the Review agent when done
+```
+
+**Key points to highlight:**
+- `tools: [read, edit, search, execute, todo]` — full access: read, write, terminal commands, and progress tracking
+- `handoffs: ["review"]` — after implementation, passes to Review
+- Reads from `docs/implementation-plan.md` — context flows between agents via file artifacts
+
+---
+
+#### 1c. Create the Review Agent
+
+```
+/create-agent
+```
+
+Provide:
+
+```
+Create an agent called "Review" that:
+- Is strictly read-only — can only read and search, NOT edit
+- Has tools: read, search (NO edit, NO execute)
+- Reviews code for bugs, security vulnerabilities, and quality issues
+- Checks against OWASP Top 10, Node.js best practices, error handling
+- Produces a structured report with severity levels (Critical / Warning / Info)
+- Must NEVER edit files or run terminal commands — only report findings
+```
+
+**Key points:**
+- `tools: [read, search]` — NO `edit` tool. The agent physically cannot modify files, regardless of instructions.
+- No `handoffs:` — this is the terminal stage in the pipeline.
+
+---
+
+#### 1d. Create the Pipeline Orchestrator (Optional)
+
+```
+/create-agent
+```
+
+Provide:
+
+```
+Create an agent called "Pipeline" that:
+- Orchestrates the Plan → Implement → Review workflow end-to-end
+- Has tools: read, search, agent
+- Has agents: plan, implement, review
+- Delegates to Plan for analysis, Implement for execution, Review for quality
+- If Review finds critical issues, sends them back to Implement, then re-reviews
+- Does NOT implement code itself — only coordinates
+```
+
+**Key points:**
+- `tools: [read, search, agent]` — the `agent` tool lets it invoke other agents
+- `agents: [plan, implement, review]` — declares which agents it can delegate to
+
+---
+
+#### 1e. Verify Agents Appear
+
+1. The agents should immediately appear in Copilot Chat's agent dropdown
+2. If not, reload the window: `Ctrl+Shift+P` → **Developer: Reload Window**
+3. Open the dropdown and confirm: **Plan**, **Implement**, **Review**, **Pipeline**
+4. Check the file explorer — `.github/agents/` was created automatically with all four `.agent.md` files
+
+**Summary of what we built:**
+
+| Agent | Tools | Can Do | Cannot Do |
+|-------|-------|--------|-----------|
+| **Plan** | `read, search, edit` | Read code, write to `docs/` | Edit source, run commands |
+| **Implement** | `read, edit, search, execute, todo` | Everything | — |
+| **Review** | `read, search` | Read and analyze | Edit files, run commands |
+| **Pipeline** | `read, search, agent` | Delegate to other agents | Direct edits |
+
+---
+
+### Step 2: Use the Plan Agent
+
+1. Open Copilot Chat (`Ctrl+Shift+I`)
+2. Select **Plan** from the agent dropdown (or type `@Plan`)
+3. Enter:
+
+```
+Analyze this Task Manager API codebase. Plan how to add:
 1. A search/filter endpoint (GET /tasks?status=pending&priority=high)
 2. Rate limiting middleware (max 100 requests per minute per IP)
 3. Request logging middleware (method, path, status code, duration)
 
-Save the plan to docs/implementation-plan.md so the Implement agent can pick it up.
+Save the plan to docs/implementation-plan.md.
 ```
 
 **What to observe:**
-- ✅ The Plan agent reads files to understand the codebase structure
-- ✅ It produces a structured implementation plan
-- ✅ It saves the plan to `docs/implementation-plan.md` — creating a tangible artifact
-- ❌ It does NOT attempt to edit source files or run commands
-
-**Key talking point:** *"The Plan agent writes its output to a docs file — creating an artifact the next agent can pick up. It has the edit tool but is scoped to only write to `docs/`. This shows instruction-level scoping on top of tool availability."*
+- ✅ Reads files to understand the codebase
+- ✅ Produces a structured implementation plan
+- ✅ Saves to `docs/implementation-plan.md` — a tangible artifact for the next agent
+- ❌ Does NOT edit source files or run terminal commands
 
 ---
 
-### Step 3: Demonstrate Tool Restriction (Proof)
+### Step 3: Prove the Tool Restrictions
 
-Still using the **Plan** agent, try to trick it:
-
-```
-Actually, go ahead and create src/middleware/rate-limiter.js with the implementation.
-```
-
-**What to observe:**
-- ❌ The agent will refuse — it's instructed to only write to `docs/`
-- It has `edit` but won't touch `src/` — the instruction scoping works
-
-Now switch to the **Review** agent and try:
+Still using **@Plan**, try:
 
 ```
-@Review Fix the issues you found — edit the files directly.
+Go ahead and create src/middleware/rate-limiter.js with the implementation.
 ```
 
-- ❌ The Review agent has NO edit tool at all — it physically cannot make changes
+- ❌ The agent refuses — its instructions restrict writes to `docs/` only
 
-**Key talking point:** *"Two layers of restriction in action: the Plan agent has edit but is scoped by instructions to `docs/` only. The Review agent doesn't have the edit tool at all — it can't write even if instructed to. Tool removal is the strongest enforcement; instruction scoping adds flexibility for agents that need limited write access."*
+Now switch to **@Review** and try:
+
+```
+Fix the issues you found — edit the files directly.
+```
+
+- ❌ The Review agent has no `edit` tool — it physically cannot make changes
+
+**Key point:** *Two enforcement layers — the Plan agent has `edit` but is scoped by instructions. The Review agent doesn't have `edit` at all. Tool removal is the strongest enforcement; instruction scoping adds flexibility.*
 
 ---
 
 ### Step 4: Hand Off to the Implement Agent
 
-1. Switch to the **Implement** agent from the dropdown (or type `@Implement`)
-2. Point it at the plan the Plan agent just saved:
+1. Switch to **@Implement**
+2. Enter:
 
 ```
-Read the implementation plan in docs/implementation-plan.md and execute it.
-Start with the search/filter endpoint, then add rate limiting, then logging.
-Run tests after each step.
+Read the plan in docs/implementation-plan.md and execute it. Start with the search/filter endpoint, then rate limiting, then logging. Run tests after each step.
 ```
-
-> **Why this works:** The Plan agent saved its output to `docs/implementation-plan.md` — a real file in the workspace. The Implement agent reads it directly. No copy-paste, no context loss, and there's an auditable artifact trail between agents.
 
 **What to observe:**
-- ✅ The Implement agent creates new files
-- ✅ It edits existing files (app.js, etc.)
-- ✅ It runs `npm test` to verify
-- ✅ It uses the todo list to track progress
-- ✅ It has full terminal access for running commands
+- ✅ Creates new files in `src/`
+- ✅ Edits existing files (app.js, etc.)
+- ✅ Runs `npm test` to verify
+- ✅ Uses the todo list to track progress
+- ✅ Has full terminal access
 
-**Key talking point:** *"Same workspace, different agent, completely different capabilities. The Implement agent can do everything the Plan agent cannot."*
+**Key point:** *The Plan agent saved to a file, and the Implement agent reads it. No copy-paste — context flows through workspace artifacts.*
 
 ---
 
 ### Step 5: Hand Off to the Review Agent
 
-1. Switch to the **Review** agent from the dropdown (or type `@Review`)
-2. Ask it to review what was just implemented:
+1. Switch to **@Review**
+2. Enter:
 
 ```
-Review the latest changes to this codebase. Check for:
-- Security vulnerabilities (especially in the rate limiter and input handling)
+Review the changes in this codebase. Check for:
+- Security vulnerabilities (especially in rate limiting and input handling)
 - Missing error handling
 - Code quality issues
-- Whether the implementation follows Node.js best practices
+- Node.js best practices
 
-Focus on src/middleware/ and any changes to src/app.js.
+Focus on any new middleware files and changes to src/app.js.
 ```
 
 **What to observe:**
-- ✅ The Review agent reads all modified files
-- ✅ It checks for OWASP Top 10 issues
-- ✅ It produces a structured review with severity levels
-- ❌ It does NOT fix the issues itself — it only reports them
+- ✅ Reads all modified files
+- ✅ Checks for OWASP Top 10 issues
+- ✅ Produces a structured review with severity levels
+- ❌ Does NOT fix issues — it only reports them
 
-**Key talking point:** *"The Review agent acts like a senior developer doing code review. It can identify issues but intentionally cannot fix them — that forces the fix back through the Implement agent, maintaining the audit trail."*
+**Key point:** *The Review agent is a senior developer doing code review. It identifies issues but can't fix them — that goes back through Implement, maintaining the audit trail.*
 
 ---
 
-### Step 6: Use the Pipeline Orchestrator (Optional Advanced Demo)
+### Step 6: Pipeline Orchestrator (Optional)
 
-1. Switch to the **Pipeline** agent (or type `@Pipeline`)
+1. Switch to **@Pipeline**
 2. Give it a single feature request:
 
 ```
-Add a PATCH /tasks/:id/status endpoint that only updates the status field. 
-It should validate that the status is one of: pending, in-progress, done.
-Return 400 for invalid status values.
+Add a PATCH /tasks/:id/status endpoint that only updates the status field. It should validate that status is one of: pending, in-progress, done. Return 400 for invalid values.
 ```
 
 **What to observe:**
-- The Pipeline agent delegates to Plan → Implement → Review automatically
-- It coordinates the handoffs without manual switching
-- Each sub-agent operates within its tool restrictions
+- Delegates to Plan → Implement → Review automatically
+- Coordinates handoffs without manual switching
+- Each sub-agent stays within its tool restrictions
 
 ---
 
-## What to Highlight (Summary for Presenter)
+## Summary for Presenter
 
 | Concept | How It's Demonstrated |
 |---------|----------------------|
-| **Tool restrictions** | Plan agent scoped to `docs/` only; Review agent has NO edit tool |
-| **Least privilege** | Each agent gets the minimum tools for its role |
-| **Handoff transitions** | `handoffs: ["implement"]` in frontmatter defines the flow |
-| **Context passing** | Plan saves to `docs/` → Implement reads from `docs/` → Review reads source |
-| **Enforcement vs guidance** | Two layers: tool removal (Review) + instruction scoping (Plan) |
-| **Node.js specific** | Agents understand CommonJS, HTTP patterns, npm workflows |
+| **Agent creation** | Step 1 — just markdown files with YAML frontmatter |
+| **Tool restrictions** | Plan scoped to `docs/`; Review has NO edit tool |
+| **Least privilege** | Each agent gets minimum tools for its role |
+| **Handoffs** | `handoffs: ["implement"]` in frontmatter defines the flow |
+| **Context passing** | Plan saves to `docs/` → Implement reads → Review reads source |
+| **Two enforcement layers** | Tool removal (Review) + instruction scoping (Plan) |
 
 ---
 
 ## Bonus Demos (If Time Permits)
 
-### Bonus A: Create a New Agent Live
+### Bonus A: Create an Agent Manually
 
-Use Copilot Chat to create a new agent on-the-fly:
+Show the alternative to `/create-agent` — create an agent by hand to demonstrate it's just a markdown file:
 
-```
-/create-agent
+1. Create `.github/agents/security-scanner.agent.md` directly in the file explorer
+2. Add YAML frontmatter: `tools: [read, search]`, no `edit`
+3. Write instructions focused on OWASP Top 10 scanning for Node.js
+4. Show it appears in the dropdown immediately — no restart needed
 
-Create a "Security Scanner" agent that:
-- Has read-only access (tools: read, search)
-- Specializes in finding OWASP Top 10 vulnerabilities in Node.js code
-- Checks for: injection, broken auth, sensitive data exposure, XXE, broken access control
-- Produces findings in a structured report with CVE references where applicable
-```
-
-Show how the `.github/agents/security-scanner.agent.md` file is created and immediately usable.
+This demonstrates both creation paths: command-driven (`/create-agent`) and manual (just create a `.md` file).
 
 ### Bonus B: Show Agent Conflict
 
-Try using the Plan agent to run tests:
+Ask the Plan agent to run tests:
 
 ```
-@Plan Run npm test and show me the results
+@Plan Run npm test and show me the results.
 ```
 
-The agent will explain it cannot execute terminal commands — demonstrating the restriction is real.
+The agent explains it cannot execute terminal commands — the restriction is real, not just a suggestion.
 
-### Bonus C: Review the Existing Code
+### Bonus C: Review Existing Code
 
 ```
-@Review Review this entire codebase for production readiness. 
-Is it safe to deploy? What's missing?
+@Review Review this entire codebase for production readiness. Is it safe to deploy? What's missing?
 ```
 
-This shows the Review agent working on existing code (not just new changes).
+Shows the Review agent working on the existing code, not just new changes.
 
 ---
 
@@ -251,17 +349,24 @@ This shows the Review agent working on existing code (not just new changes).
 
 | File | Purpose |
 |------|---------|
-| `.github/agents/plan.agent.md` | Planning agent (writes to `docs/` only) |
-| `.github/agents/implement.agent.md` | Full-access implementation agent definition |
-| `.github/agents/review.agent.md` | Read-only code review agent definition |
-| `.github/agents/pipeline.agent.md` | Orchestrator that coordinates all three |
 | `src/app.js` | HTTP server & routing (main code to extend) |
-| `src/controllers/taskController.js` | Business logic |
+| `src/index.js` | Server entry point |
+| `src/controllers/taskController.js` | Business logic for tasks |
 | `src/models/taskStore.js` | In-memory data store |
-| `src/utils/validation.js` | Input validation |
-| `src/utils/http.js` | HTTP helper utilities |
-| `src/app.test.js` | Test suite |
+| `src/utils/validation.js` | Input validation helpers |
+| `src/utils/http.js` | HTTP response utilities |
+| `src/app.test.js` | Test suite (2 tests) |
 | `package.json` | Project configuration |
+| `docs/` | Output folder for Plan agent artifacts |
+
+**Created during the demo:**
+
+| File | Purpose |
+|------|---------|
+| `.github/agents/plan.agent.md` | Planning agent (writes to `docs/` only) |
+| `.github/agents/implement.agent.md` | Full-access implementation agent |
+| `.github/agents/review.agent.md` | Read-only code review agent |
+| `.github/agents/pipeline.agent.md` | Orchestrator that coordinates all three |
 
 ---
 
@@ -269,15 +374,15 @@ This shows the Review agent working on existing code (not just new changes).
 
 | Issue | Solution |
 |-------|----------|
-| Agents don't appear in dropdown | Restart VS Code; ensure `.github/agents/` path is correct |
+| Agents don't appear in dropdown | Reload VS Code window; ensure `.github/agents/` path is correct |
 | "Agent not found" error | Check filename matches `*.agent.md` pattern |
-| Plan agent edits source | Check agent instructions restrict to `docs/` folder only |
-| Tests fail after implementation | Ask Implement agent: `"Fix the failing tests"` |
-| Handoff button not visible | Ensure `handoffs:` is in the YAML frontmatter |
+| Plan agent edits source files | Verify instructions restrict to `docs/` folder |
+| Tests fail after implementation | Ask `@Implement`: "Fix the failing tests" |
+| Handoff not working | Ensure `handoffs:` is in the YAML frontmatter |
 
 ---
 
-## Key Takeaways for Participants
+## Key Takeaways
 
 1. **Custom agents = role-based access control for AI** — each agent gets only the tools it needs
 2. **Two layers of restriction** — tool removal (can't use it at all) + instruction scoping (can use it, but only for X)
