@@ -1,0 +1,13 @@
+{
+  "name": "custom-agents-demo",
+  "version": "1.0.0",
+  "description": "Demo Node.js app showcasing VS Code custom agents with tool restrictions and handoff workflows",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test src/**/*.test.js",
+    "lint": "echo 'No linter configured yet'"
+  },
+  "keywords": ["copilot", "agents", "demo"],
+  "license": "MIT"
+}
