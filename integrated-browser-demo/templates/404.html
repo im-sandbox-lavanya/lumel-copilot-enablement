@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}404 — AMI Firmware{% endblock %}
+{% block page_title %}Page Not Found{% endblock %}
+{% block breadcrumb %}Error / 404{% endblock %}
+{% block content %}
+<div class="empty-state" style="margin-top: 80px;">
+  <i class="fas fa-triangle-exclamation" style="font-size: 3rem; color: var(--yellow); margin-bottom: 16px;"></i>
+  <h2 style="color: var(--text);">404 — Not Found</h2>
+  <p style="color: var(--text-muted);">The requested page does not exist.</p>
+  <a href="/" class="btn-primary" style="margin-top: 16px;">← Back to Dashboard</a>
+</div>
+{% endblock %}

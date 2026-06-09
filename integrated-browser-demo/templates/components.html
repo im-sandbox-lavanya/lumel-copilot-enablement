@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Components — AMI Firmware{% endblock %}
+{% block page_title %}Firmware Components{% endblock %}
+{% block breadcrumb %}Components / {{ total }} Modules{% endblock %}
+
+{% block topbar_actions %}
+<div class="filter-bar">
+  <a href="/components?status=all"  class="filter-btn {% if status_filter == 'all' %}active{% endif %}">All</a>
+  <a href="/components?status=pass" class="filter-btn pass {% if status_filter == 'pass' %}active{% endif %}"><i class="fas fa-check"></i> Pass</a>
+  <a href="/components?status=warn" class="filter-btn warn {% if status_filter == 'warn' %}active{% endif %}"><i class="fas fa-triangle-exclamation"></i> Warn</a>
+  <a href="/components?status=fail" class="filter-btn fail {% if status_filter == 'fail' %}active{% endif %}"><i class="fas fa-times"></i> Fail</a>
+</div>
+{% endblock %}
+
+{% block content %}
+
+<div class="component-grid">
+  {% for c in components %}
+  <div class="component-card status-border-{{ c.status }}">
+    <div class="comp-header">
+      <div class="comp-icon status-bg-{{ c.status }}">
+        {% if c.status == 'pass' %}<i class="fas fa-circle-check"></i>
+        {% elif c.status == 'warn' %}<i class="fas fa-triangle-exclamation"></i>
+        {% else %}<i class="fas fa-circle-xmark"></i>{% endif %}
+      </div>
+      <div class="comp-title">
+        <h3>{{ c.name }}</h3>
+        <code class="module-code">{{ c.module }}</code>
+      </div>
+      <span class="status-badge status-{{ c.status }}">
+        {% if c.status == 'pass' %}Pass{% elif c.status == 'warn' %}Warn{% else %}Fail{% endif %}
+      </span>
+    </div>
+    <div class="comp-meta">
+      <div class="meta-item">
+        <span class="meta-label">Version</span>
+        <span class="meta-value mono">{{ c.version }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Size</span>
+        <span class="meta-value mono">{{ c.size_kb }} KB</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">ID</span>
+        <span class="meta-value mono">#{{ c.id }}</span>
+      </div>
+    </div>
+    <div class="comp-size-bar">
+      <div class="size-fill status-bg-{{ c.status }}" style="width: {{ [c.size_kb / 6, 100] | min }}%"></div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <i class="fas fa-filter"></i>
+    <p>No components match the selected filter.</p>
+    <a href="/components" class="btn-primary">Clear filter</a>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

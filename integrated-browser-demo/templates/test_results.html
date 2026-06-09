@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Test Results — AMI Firmware{% endblock %}
+{% block page_title %}Test Results{% endblock %}
+{% block breadcrumb %}Tests / UEFI SCT + Validation Suites{% endblock %}
+
+{% block content %}
+
+<!-- Summary KPIs -->
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+  <div class="kpi-card kpi-primary">
+    <div class="kpi-icon"><i class="fas fa-list-check"></i></div>
+    <div class="kpi-body"><div class="kpi-value">{{ summary.total }}</div><div class="kpi-label">Total Tests</div></div>
+  </div>
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon"><i class="fas fa-circle-check"></i></div>
+    <div class="kpi-body"><div class="kpi-value">{{ summary.passed }}</div><div class="kpi-label">Passed</div></div>
+  </div>
+  <div class="kpi-card kpi-red">
+    <div class="kpi-icon"><i class="fas fa-circle-xmark"></i></div>
+    <div class="kpi-body"><div class="kpi-value">{{ summary.failed }}</div><div class="kpi-label">Failed</div></div>
+  </div>
+  <div class="kpi-card kpi-muted">
+    <div class="kpi-icon"><i class="fas fa-forward"></i></div>
+    <div class="kpi-body"><div class="kpi-value">{{ summary.skipped }}</div><div class="kpi-label">Skipped</div></div>
+  </div>
+</div>
+
+<!-- Test Suites Table -->
+<div class="panel" style="margin-top: 24px;">
+  <div class="panel-header">
+    <h2><i class="fas fa-flask"></i> Test Suites</h2>
+  </div>
+  <div class="panel-body" style="padding: 0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Suite</th>
+          <th style="text-align:center;">Total</th>
+          <th style="text-align:center;">Passed</th>
+          <th style="text-align:center;">Failed</th>
+          <th style="text-align:center;">Skipped</th>
+          <th>Pass Rate</th>
+          <th style="text-align:center;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suites %}
+        {% set rate = ((s.passed / s.total) * 100) | round(1) %}
+        <tr>
+          <td><strong>{{ s.suite }}</strong></td>
+          <td class="mono center">{{ s.total }}</td>
+          <td class="mono center label-green">{{ s.passed }}</td>
+          <td class="mono center {% if s.failed > 0 %}label-red{% endif %}">{{ s.failed }}</td>
+          <td class="mono center label-muted">{{ s.skipped }}</td>
+          <td style="min-width: 140px;">
+            <div class="inline-progress">
+              <div class="inline-bar" style="width: {{ rate }}%; background: {% if rate == 100 %}#3fb950{% elif rate >= 80 %}#d29922{% else %}#f85149{% endif %}"></div>
+            </div>
+            <span class="rate-label">{{ rate }}%</span>
+          </td>
+          <td class="center">
+            <span class="status-badge {% if s.failed == 0 %}status-pass{% elif s.failed <= 2 %}status-warn{% else %}status-fail{% endif %}">
+              {% if s.failed == 0 %}<i class="fas fa-check"></i> Pass
+              {% elif s.failed <= 2 %}<i class="fas fa-triangle-exclamation"></i> Warn
+              {% else %}<i class="fas fa-times"></i> Fail{% endif %}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

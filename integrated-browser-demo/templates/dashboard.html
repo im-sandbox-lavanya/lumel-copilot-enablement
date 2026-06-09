@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — AMI Firmware{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block breadcrumb %}Overview / Build {{ build_date }}{% endblock %}
+
+{% block topbar_actions %}
+<div class="firmware-badge">
+  <i class="fas fa-microchip"></i> {{ firmware_ver }}
+</div>
+{% endblock %}
+
+{% block content %}
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+
+  <div class="kpi-card kpi-primary">
+    <div class="kpi-icon"><i class="fas fa-cubes"></i></div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ stats.total }}</div>
+      <div class="kpi-label">Total Modules</div>
+    </div>
+    <div class="kpi-trend up"><i class="fas fa-arrow-up"></i> All modules built</div>
+  </div>
+
+  <div class="kpi-card kpi-green">
+    <div class="kpi-icon"><i class="fas fa-circle-check"></i></div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ stats.passing }}</div>
+      <div class="kpi-label">Passing</div>
+    </div>
+    <div class="kpi-trend up"><i class="fas fa-arrow-up"></i> {{ ((stats.passing / stats.total) * 100) | round(0) }}% pass rate</div>
+  </div>
+
+  <div class="kpi-card kpi-yellow">
+    <div class="kpi-icon"><i class="fas fa-triangle-exclamation"></i></div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ stats.warnings }}</div>
+      <div class="kpi-label">Warnings</div>
+    </div>
+    <div class="kpi-trend neutral"><i class="fas fa-minus"></i> Review recommended</div>
+  </div>
+
+  <div class="kpi-card kpi-red">
+    <div class="kpi-icon"><i class="fas fa-circle-xmark"></i></div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ stats.failing }}</div>
+      <div class="kpi-label">Failures</div>
+    </div>
+    <div class="kpi-trend down"><i class="fas fa-arrow-down"></i> Requires immediate fix</div>
+  </div>
+
+</div>
+
+<!-- Charts + Quick Info Row -->
+<div class="dashboard-row">
+
+  <!-- Donut Chart -->
+  <div class="panel panel-chart">
+    <div class="panel-header">
+      <h2><i class="fas fa-chart-pie"></i> Build Health</h2>
+    </div>
+    <div class="panel-body chart-container">
+      <canvas id="buildChart" width="260" height="260"></canvas>
+      <div class="chart-legend">
+        <div class="legend-item"><span class="dot green"></span>Pass <strong>{{ stats.passing }}</strong></div>
+        <div class="legend-item"><span class="dot yellow"></span>Warn <strong>{{ stats.warnings }}</strong></div>
+        <div class="legend-item"><span class="dot red"></span>Fail <strong>{{ stats.failing }}</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Test Summary -->
+  <div class="panel panel-tests">
+    <div class="panel-header">
+      <h2><i class="fas fa-flask"></i> Test Coverage</h2>
+      <a href="/test-results" class="panel-link">View all <i class="fas fa-arrow-right"></i></a>
+    </div>
+    <div class="panel-body">
+      <div class="big-number">
+        <span class="big-val">{{ ((test_sum.passed / test_sum.total) * 100) | round(1) }}%</span>
+        <span class="big-sub">{{ test_sum.passed }} / {{ test_sum.total }} tests passed</span>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill green"  style="width: {{ ((test_sum.passed  / test_sum.total) * 100) | round(1) }}%"></div>
+        <div class="progress-bar-fill red"    style="width: {{ ((test_sum.failed  / test_sum.total) * 100) | round(1) }}%"></div>
+        <div class="progress-bar-fill muted"  style="width: {{ ((test_sum.skipped / test_sum.total) * 100) | round(1) }}%"></div>
+      </div>
+      <div class="progress-labels">
+        <span class="label-green"><i class="fas fa-check"></i> {{ test_sum.passed }} Passed</span>
+        <span class="label-red"><i class="fas fa-times"></i> {{ test_sum.failed }} Failed</span>
+        <span class="label-muted"><i class="fas fa-minus"></i> {{ test_sum.skipped }} Skipped</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Build Info -->
+  <div class="panel panel-info">
+    <div class="panel-header">
+      <h2><i class="fas fa-info-circle"></i> Build Info</h2>
+    </div>
+    <div class="panel-body">
+      <dl class="info-list">
+        <dt>Firmware Version</dt><dd>{{ firmware_ver }}</dd>
+        <dt>Build Date</dt><dd>{{ build_date }}</dd>
+        <dt>Build Duration</dt><dd>{{ build_time }} (elapsed)</dd>
+        <dt>Target Arch</dt><dd>X64 Release</dd>
+        <dt>Compiler</dt><dd>EDK II / GCC 12.3</dd>
+        <dt>Toolchain</dt><dd>ASTC-VS2022</dd>
+      </dl>
+    </div>
+  </div>
+
+</div>
+
+<!-- Recent Modules Table -->
+<div class="panel" style="margin-top: 24px;">
+  <div class="panel-header">
+    <h2><i class="fas fa-layer-group"></i> Module Status</h2>
+    <a href="/components" class="panel-link">View all <i class="fas fa-arrow-right"></i></a>
+  </div>
+  <div class="panel-body" style="padding: 0;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Module Name</th><th>Version</th><th>Size</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in components %}
+        <tr>
+          <td class="mono">{{ c.id }}</td>
+          <td><strong>{{ c.name }}</strong><br><span class="sub-text">{{ c.module }}</span></td>
+          <td class="mono">{{ c.version }}</td>
+          <td class="mono">{{ c.size_kb }} KB</td>
+          <td>
+            <span class="status-badge status-{{ c.status }}">
+              {% if c.status == 'pass' %}<i class="fas fa-check"></i> Pass
+              {% elif c.status == 'warn' %}<i class="fas fa-triangle-exclamation"></i> Warn
+              {% else %}<i class="fas fa-times"></i> Fail{% endif %}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const ctx = document.getElementById("buildChart").getContext("2d");
+  const pass = {{ stats.passing }};
+  const warn = {{ stats.warnings }};
+  const fail = {{ stats.failing }};
+  const total = pass + warn + fail;
+  const data = [
+    { value: pass, color: "#3fb950" },
+    { value: warn, color: "#d29922" },
+    { value: fail, color: "#f85149" },
+  ];
+
+  let start = -Math.PI / 2;
+  const cx = 130, cy = 130, r = 100, inner = 65;
+  ctx.clearRect(0, 0, 260, 260);
+
+  data.forEach(({ value, color }) => {
+    const angle = (value / total) * 2 * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, start + angle);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    start += angle;
+  });
+
+  // Donut hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, inner, 0, 2 * Math.PI);
+  ctx.fillStyle = getComputedStyle(document.body).getPropertyValue("--surface") || "#161b22";
+  ctx.fill();
+
+  // Center label
+  ctx.fillStyle = "#e6edf3";
+  ctx.font = "bold 28px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(Math.round((pass / total) * 100) + "%", cx, cy - 10);
+  ctx.font = "13px Inter, sans-serif";
+  ctx.fillStyle = "#8b949e";
+  ctx.fillText("pass rate", cx, cy + 16);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Build Log — AMI Firmware{% endblock %}
+{% block page_title %}Build Log{% endblock %}
+{% block breadcrumb %}Logs / Latest Build{% endblock %}
+
+{% block topbar_actions %}
+<button class="btn-ghost" id="autoScrollBtn" onclick="toggleAutoScroll()">
+  <i class="fas fa-angles-down"></i> Auto-scroll
+</button>
+<button class="btn-ghost" onclick="window.location.reload()">
+  <i class="fas fa-rotate-right"></i> Refresh
+</button>
+{% endblock %}
+
+{% block content %}
+
+<div class="log-summary-row">
+  {% set error_count = log_entries | selectattr('level', 'equalto', 'ERROR') | list | length %}
+  {% set warn_count  = log_entries | selectattr('level', 'equalto', 'WARN')  | list | length %}
+  <div class="log-stat"><span class="log-count">{{ log_entries | length }}</span><span class="log-label">Total Lines</span></div>
+  <div class="log-stat log-stat-warn"><span class="log-count">{{ warn_count }}</span><span class="log-label">Warnings</span></div>
+  <div class="log-stat log-stat-error"><span class="log-count">{{ error_count }}</span><span class="log-label">Errors</span></div>
+</div>
+
+<div class="panel log-panel" id="logPanel">
+  <div class="panel-header log-panel-header">
+    <h2><i class="fas fa-terminal"></i> Build Output</h2>
+    <div class="log-filters">
+      <button class="log-filter-btn active" data-level="ALL">ALL</button>
+      <button class="log-filter-btn" data-level="INFO">INFO</button>
+      <button class="log-filter-btn" data-level="WARN">WARN</button>
+      <button class="log-filter-btn" data-level="ERROR">ERROR</button>
+    </div>
+  </div>
+  <div class="log-output" id="logOutput">
+    {% for entry in log_entries %}
+    <div class="log-line log-{{ entry.level | lower }}" data-level="{{ entry.level }}">
+      <span class="log-ts">[{{ entry.ts }}]</span>
+      <span class="log-level level-{{ entry.level | lower }}">{{ entry.level }}</span>
+      <span class="log-msg">{{ entry.msg }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let autoScroll = false;
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  const btn = document.getElementById("autoScrollBtn");
+  btn.style.opacity = autoScroll ? "1" : "0.5";
+  if (autoScroll) scrollToBottom();
+}
+
+function scrollToBottom() {
+  const out = document.getElementById("logOutput");
+  out.scrollTop = out.scrollHeight;
+}
+
+// Level filter
+document.querySelectorAll(".log-filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".log-filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    const level = btn.dataset.level;
+    document.querySelectorAll(".log-line").forEach(line => {
+      line.style.display = (level === "ALL" || line.dataset.level === level) ? "" : "none";
+    });
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}AMI Firmware Dashboard{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <!-- Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon"><i class="fas fa-microchip"></i></div>
+      <div class="brand-text">
+        <span class="brand-name">AMI</span>
+        <span class="brand-sub">Firmware Dashboard</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('dashboard') }}"    class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <i class="fas fa-gauge-high"></i><span>Dashboard</span>
+      </a>
+      <a href="{{ url_for('components') }}"  class="nav-item {% if request.endpoint == 'components' %}active{% endif %}">
+        <i class="fas fa-cubes"></i><span>Components</span>
+      </a>
+      <a href="{{ url_for('build_log') }}"   class="nav-item {% if request.endpoint == 'build_log' %}active{% endif %}">
+        <i class="fas fa-terminal"></i><span>Build Log</span>
+      </a>
+      <a href="{{ url_for('test_results') }}" class="nav-item {% if request.endpoint == 'test_results' %}active{% endif %}">
+        <i class="fas fa-flask"></i><span>Test Results</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="/api/health" target="_blank" class="nav-item">
+        <i class="fas fa-heart-pulse"></i><span>API Health</span>
+      </a>
+      <div class="sidebar-version">v4.8.0.0 — Aptio 5</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1>{% block page_title %}{% endblock %}</h1>
+        <span class="breadcrumb">{% block breadcrumb %}{% endblock %}</span>
+      </div>
+      <div class="topbar-actions">
+        {% block topbar_actions %}{% endblock %}
+        <div class="status-pill">
+          <span class="status-dot online"></span>Build Server Online
+        </div>
+      </div>
+    </header>
+
+    <div class="content-body">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
